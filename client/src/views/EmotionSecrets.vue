@@ -13,7 +13,7 @@
             {{ emotionName }}
           </h2>
           <p class="emotion-desc">
-            共有 <strong :style="{ color: emotionColor }">{{ total }}</strong> 段关于「{{ emotionName }}」的心声
+            最近{{ recentDays }}天共有 <strong :style="{ color: emotionColor }">{{ total }}</strong> 段关于「{{ emotionName }}」的心声
           </p>
         </div>
       </div>
@@ -105,6 +105,7 @@ const secrets = ref([])
 const page = ref(1)
 const limit = 10
 const hasMore = ref(false)
+const recentDays = ref(30)
 const emotionName = ref('')
 const emotionEmoji = ref('💭')
 const emotionColor = ref('#667eea')
@@ -116,7 +117,7 @@ async function fetchSecrets() {
   page.value = 1
 
   try {
-    const response = await fetch(`/api/secrets/emotion/${emotionKey}?page=${page.value}&limit=${limit}`)
+    const response = await fetch(`/api/secrets/emotion/${emotionKey}?page=${page.value}&limit=${limit}&days=${recentDays.value}`)
     const data = await response.json()
 
     if (response.ok) {
@@ -126,6 +127,9 @@ async function fetchSecrets() {
       total.value = data.total
       secrets.value = data.secrets
       hasMore.value = data.hasMore
+      if (data.recentDays) {
+        recentDays.value = data.recentDays
+      }
     } else {
       error.value = data.error || '加载失败，请稍后重试'
     }
@@ -143,7 +147,7 @@ async function loadMore() {
   page.value++
 
   try {
-    const response = await fetch(`/api/secrets/emotion/${emotionKey}?page=${page.value}&limit=${limit}`)
+    const response = await fetch(`/api/secrets/emotion/${emotionKey}?page=${page.value}&limit=${limit}&days=${recentDays.value}`)
     const data = await response.json()
 
     if (response.ok) {

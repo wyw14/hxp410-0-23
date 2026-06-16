@@ -4,7 +4,7 @@
       <div class="card-header">
         <span class="icon">🗺️</span>
         <h2>情绪地图</h2>
-        <p class="subtitle">探索被宽恕秘密背后的情绪轮廓</p>
+        <p class="subtitle">探索最近公开秘密背后的情绪轮廓</p>
       </div>
 
       <div v-if="loading" class="loading">
@@ -22,7 +22,7 @@
         <div class="stats-overview">
           <div class="total-card">
             <span class="total-number">{{ total }}</span>
-            <span class="total-label">段被宽恕的心声</span>
+            <span class="total-label">段最近{{ recentDays }}天的心声</span>
           </div>
         </div>
 
@@ -133,6 +133,7 @@ const loading = ref(true)
 const error = ref('')
 const total = ref(0)
 const stats = ref([])
+const recentDays = ref(30)
 
 const maxCount = computed(() => {
   if (stats.value.length === 0) return 1
@@ -162,6 +163,9 @@ async function fetchStats() {
     if (response.ok) {
       total.value = data.total
       stats.value = data.stats
+      if (data.recentDays) {
+        recentDays.value = data.recentDays
+      }
     } else {
       error.value = data.error || '加载失败，请稍后重试'
     }

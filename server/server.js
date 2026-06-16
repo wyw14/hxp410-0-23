@@ -125,10 +125,28 @@ app.get('/api/emotions', (req, res) => {
   }
 });
 
+const RECENT_DAYS = 30;
+
+function getRecentDate(days) {
+  const date = new Date();
+  date.setDate(date.getDate() - days);
+  return date;
+}
+
+function filterRecentSecrets(secrets, days = RECENT_DAYS) {
+  const cutoffDate = getRecentDate(days);
+  return secrets.filter(s => {
+    const secretDate = new Date(s.createdAt);
+    return secretDate >= cutoffDate;
+  });
+}
+
 app.get('/api/emotions/stats', (req, res) => {
   try {
+    const { days = RECENT_DAYS } = req.query;
     const secrets = readSecrets();
     const forgivenSecrets = secrets.filter(s => s.status === '已宽恕');
+    const recentSecrets = filterRecentSecrets(forgivenSecrets, parseInt(days));
 
     const stats = {};
     Object.keys(EMOTIONS).forEach(key => {
@@ -139,7 +157,7 @@ app.get('/api/emotions/stats', (req, res) => {
       };
     });
 
-    forgivenSecrets.forEach(secret => {
+    recentSecrets.forEach(secret => {
       if (stats[secret.emotion]) {
         stats[secret.emotion].count++;
         stats[secret.emotion].avgIntensity += secret.intensity || 0;
@@ -156,10 +174,9 @@ app.get('/api/emotions/stats', (req, res) => {
       .map(([key, value]) => ({ key, ...value }))
       .sort((a, b) => b.count - a.count);
 
-    const totalCount = forgivenSecrets.length;
-
     res.json({
-      total: totalCount,
+      total: recentSecrets.length,
+      recentDays: parseInt(days),
       stats: sortedStats
     });
   } catch (error) {
@@ -171,16 +188,20 @@ app.get('/api/emotions/stats', (req, res) => {
 app.get('/api/secrets/emotion/:emotion', (req, res) => {
   try {
     const { emotion } = req.params;
-    const { page = 1, limit = 20 } = req.query;
+    const { page = 1, limit = 20, days } = req.query;
 
     if (!EMOTIONS[emotion]) {
       return res.status(400).json({ error: '无效的情绪类型' });
     }
 
-    const secrets = readSecrets();
-    const filteredSecrets = secrets
-      .filter(s => s.status === '已宽恕' && s.emotion === emotion)
-      .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+    let secrets = readSecrets();
+    let filteredSecrets = secrets.filter(s => s.status === '已宽恕' && s.emotion === emotion);
+
+    if (days) {
+      filteredSecrets = filterRecentSecrets(filteredSecrets, parseInt(days));
+    }
+
+    filteredSecrets = filteredSecrets.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 
     const pageNum = parseInt(page);
     const limitNum = parseInt(limit);
@@ -195,6 +216,7 @@ app.get('/api/secrets/emotion/:emotion', (req, res) => {
       page: pageNum,
       limit: limitNum,
       hasMore: end < filteredSecrets.length,
+      recentDays: days ? parseInt(days) : null,
       secrets: paginatedSecrets.map(s => ({
         id: s.id,
         content: s.content,

@@ -5,7 +5,24 @@
       @complete="handleAnimationComplete"
     />
 
-    <div class="card confess-card" v-if="!showAnimation">
+    <div class="card complete-card" v-if="showComplete">
+      <div class="complete-content">
+        <span class="complete-icon">💜</span>
+        <h2>宽恕已完成</h2>
+        <p>你的秘密已经被温柔地保存</p>
+        <p>愿你获得内心的平静</p>
+        <div class="complete-actions">
+          <button class="btn btn-secondary" @click="resetForm">
+            再分享一个
+          </button>
+          <button class="btn btn-primary" @click="goHome">
+            回到首页
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div class="card confess-card" v-else>
       <div class="card-header">
         <span class="icon">🕊️</span>
         <h2>倾诉你的秘密</h2>
@@ -97,23 +114,6 @@
       <div class="tips">
         <p>💡 提示：你的秘密会被匿名保存，没有人会知道是谁分享的</p>
         <p>🌈 提交后，它将被自动标记为「已宽恕」</p>
-      </div>
-    </div>
-
-    <div class="card complete-card" v-else-if="showComplete">
-      <div class="complete-content">
-        <span class="complete-icon">💜</span>
-        <h2>宽恕已完成</h2>
-        <p>你的秘密已经被温柔地保存</p>
-        <p>愿你获得内心的平静</p>
-        <div class="complete-actions">
-          <button class="btn btn-secondary" @click="resetForm">
-            再分享一个
-          </button>
-          <button class="btn btn-primary" @click="goHome">
-            回到首页
-          </button>
-        </div>
       </div>
     </div>
   </div>
