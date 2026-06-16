@@ -22,6 +22,23 @@
       <transition name="fade" v-else>
         <div class="secret-content" :key="secret?.id">
           <p class="secret-text">"{{ secret.content }}"</p>
+
+          <div v-if="secret?.emotion" class="emotion-tag-section" @click="goToEmotionSecrets">
+            <span class="emotion-tag" :style="{ backgroundColor: emotionColor + '20', color: emotionColor, borderColor: emotionColor + '40' }">
+              <span class="tag-emoji">{{ emotionEmoji }}</span>
+              <span class="tag-name">{{ emotionName }}</span>
+              <span class="tag-intensity">
+                <span
+                  v-for="level in 5"
+                  :key="level"
+                  class="intensity-dot"
+                  :style="{ backgroundColor: level <= secret.intensity ? emotionColor : emotionColor + '30' }"
+                ></span>
+              </span>
+            </span>
+            <span class="click-hint">查看更多 →</span>
+          </div>
+
           <div class="secret-footer">
             <span class="status-badge">{{ secret.status }}</span>
             <button class="btn btn-secondary refresh-btn" @click="fetchRandomSecret">
@@ -35,13 +52,16 @@
         <button class="btn btn-primary" @click="goToConfess">
           我也想倾诉
         </button>
+        <button class="btn btn-secondary map-btn" @click="goToEmotionMap">
+          🗺️ 探索情绪地图
+        </button>
       </div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 
 const router = useRouter()
@@ -49,6 +69,34 @@ const loading = ref(true)
 const hasSecret = ref(false)
 const secret = ref(null)
 const message = ref('')
+const emotions = ref({})
+
+const emotionName = computed(() => {
+  if (!secret.value?.emotion) return ''
+  return emotions.value[secret.value.emotion]?.name || secret.value.emotion
+})
+
+const emotionEmoji = computed(() => {
+  if (!secret.value?.emotion) return '💭'
+  return emotions.value[secret.value.emotion]?.emoji || '💭'
+})
+
+const emotionColor = computed(() => {
+  if (!secret.value?.emotion) return '#667eea'
+  return emotions.value[secret.value.emotion]?.color || '#667eea'
+})
+
+async function fetchEmotions() {
+  try {
+    const response = await fetch('/api/emotions')
+    const data = await response.json()
+    data.emotions.forEach(e => {
+      emotions.value[e.key] = e
+    })
+  } catch (err) {
+    console.error('获取情绪类型失败:', err)
+  }
+}
 
 async function fetchRandomSecret() {
   loading.value = true
@@ -71,7 +119,18 @@ function goToConfess() {
   router.push('/confess')
 }
 
-onMounted(() => {
+function goToEmotionMap() {
+  router.push('/emotions')
+}
+
+function goToEmotionSecrets() {
+  if (secret.value?.emotion) {
+    router.push(`/emotions/${secret.value.emotion}`)
+  }
+}
+
+onMounted(async () => {
+  await fetchEmotions()
   fetchRandomSecret()
 })
 </script>
@@ -163,8 +222,67 @@ onMounted(() => {
   color: #333;
   font-style: italic;
   text-align: center;
-  margin-bottom: 30px;
+  margin-bottom: 20px;
   padding: 0 10px;
+}
+
+.emotion-tag-section {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin-bottom: 25px;
+  cursor: pointer;
+  padding: 10px 15px;
+  border-radius: 12px;
+  transition: all 0.3s ease;
+}
+
+.emotion-tag-section:hover {
+  background: #f8f9ff;
+}
+
+.emotion-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  border-radius: 20px;
+  font-size: 14px;
+  font-weight: 500;
+  border: 1px solid;
+}
+
+.tag-emoji {
+  font-size: 18px;
+}
+
+.tag-intensity {
+  display: inline-flex;
+  gap: 3px;
+  margin-left: 4px;
+  padding-left: 8px;
+  border-left: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.intensity-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  transition: all 0.3s ease;
+}
+
+.click-hint {
+  font-size: 12px;
+  color: #999;
+  opacity: 0;
+  transform: translateX(-5px);
+  transition: all 0.3s ease;
+}
+
+.emotion-tag-section:hover .click-hint {
+  opacity: 1;
+  transform: translateX(0);
 }
 
 .secret-footer {
@@ -193,6 +311,7 @@ onMounted(() => {
   border-radius: 20px;
   cursor: pointer;
   transition: all 0.3s ease;
+  font-family: inherit;
 }
 
 .refresh-btn:hover {
@@ -201,9 +320,25 @@ onMounted(() => {
 }
 
 .card-actions {
-  margin-top: 40px;
+  margin-top: 35px;
   text-align: center;
   padding-top: 30px;
   border-top: 1px solid #eee;
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.map-btn {
+  background: white;
+  color: #667eea;
+  border: 1px solid #667eea;
+  backdrop-filter: none;
+}
+
+.map-btn:hover {
+  background: #667eea;
+  color: white;
 }
 </style>

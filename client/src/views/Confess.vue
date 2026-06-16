@@ -17,11 +17,60 @@
           v-model="secretContent"
           class="secret-input"
           placeholder="在这里写下你想说的话...&#10;&#10;也许是一件愧疚的事，&#10;也许是一个深藏的秘密，&#10;也许只是想找个地方倾诉..."
-          rows="8"
+          rows="6"
           :disabled="submitting"
         ></textarea>
         <div class="char-count">
           {{ secretContent.length }} / 500
+        </div>
+      </div>
+
+      <div class="form-group emotion-section">
+        <label class="section-label">
+          <span class="label-icon">💭</span>
+          选择你此刻的心情
+        </label>
+        <div class="emotion-grid">
+          <button
+            v-for="emotion in emotions"
+            :key="emotion.key"
+            class="emotion-btn"
+            :class="{ active: selectedEmotion === emotion.key }"
+            :style="{
+              '--emotion-color': emotion.color,
+              borderColor: selectedEmotion === emotion.key ? emotion.color : 'transparent'
+            }"
+            @click="selectEmotion(emotion.key)"
+            :disabled="submitting"
+          >
+            <span class="emotion-emoji">{{ emotion.emoji }}</span>
+            <span class="emotion-name">{{ emotion.name }}</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="form-group intensity-section" v-if="selectedEmotion">
+        <label class="section-label">
+          <span class="label-icon">📊</span>
+          心情强度：<span class="intensity-value">{{ intensityLabels[intensity - 1] }}</span>
+        </label>
+        <div class="intensity-slider-container">
+          <div class="intensity-levels">
+            <div
+              v-for="level in 5"
+              :key="level"
+              class="intensity-point"
+              :class="{ active: level <= intensity }"
+              :style="{ backgroundColor: getEmotionColor(selectedEmotion, level) }"
+              @click="setIntensity(level)"
+            >
+              <span class="intensity-num">{{ level }}</span>
+            </div>
+          </div>
+          <div class="intensity-labels-row">
+            <span class="intensity-label-text">轻微</span>
+            <span class="intensity-label-text">强烈</span>
+          </div>
         </div>
       </div>
 
@@ -33,7 +82,7 @@
         <button
           class="btn btn-primary submit-btn"
           @click="submitSecret"
-          :disabled="submitting || !secretContent.trim() || secretContent.length > 500"
+          :disabled="isSubmitDisabled"
         >
           <span v-if="submitting">
             <span class="btn-spinner"></span>
@@ -71,7 +120,7 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import ForgivenessAnimation from '../components/ForgivenessAnimation.vue'
 
@@ -81,6 +130,47 @@ const submitting = ref(false)
 const error = ref('')
 const showAnimation = ref(false)
 const showComplete = ref(false)
+const selectedEmotion = ref('')
+const intensity = ref(3)
+const emotions = ref([])
+
+const intensityLabels = ['微微有些', '有一点', '感觉挺', '非常', '极度']
+
+const isSubmitDisabled = computed(() => {
+  return (
+    submitting.value ||
+    !secretContent.value.trim() ||
+    secretContent.value.length > 500 ||
+    !selectedEmotion.value ||
+    intensity.value < 1 ||
+    intensity.value > 5
+  )
+})
+
+async function fetchEmotions() {
+  try {
+    const response = await fetch('/api/emotions')
+    const data = await response.json()
+    emotions.value = data.emotions
+  } catch (err) {
+    console.error('获取情绪类型失败:', err)
+  }
+}
+
+function selectEmotion(key) {
+  selectedEmotion.value = key
+}
+
+function setIntensity(level) {
+  intensity.value = level
+}
+
+function getEmotionColor(emotionKey, level) {
+  const emotion = emotions.value.find(e => e.key === emotionKey)
+  if (!emotion) return '#ccc'
+  const alpha = 0.4 + (level * 0.12)
+  return emotion.color + Math.round(alpha * 255).toString(16).padStart(2, '0')
+}
 
 async function submitSecret() {
   if (!secretContent.value.trim()) {
@@ -90,6 +180,16 @@ async function submitSecret() {
 
   if (secretContent.value.length > 500) {
     error.value = '内容不能超过500字'
+    return
+  }
+
+  if (!selectedEmotion.value) {
+    error.value = '请选择你此刻的心情'
+    return
+  }
+
+  if (intensity.value < 1 || intensity.value > 5) {
+    error.value = '请选择心情强度'
     return
   }
 
@@ -103,13 +203,16 @@ async function submitSecret() {
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        content: secretContent.value
+        content: secretContent.value,
+        emotion: selectedEmotion.value,
+        intensity: intensity.value
       })
     })
 
     const data = await response.json()
 
     if (response.ok) {
+      submitting.value = false
       showAnimation.value = true
     } else {
       error.value = data.error || '提交失败，请稍后重试'
@@ -132,17 +235,23 @@ function resetForm() {
   showComplete.value = false
   error.value = ''
   submitting.value = false
+  selectedEmotion.value = ''
+  intensity.value = 3
 }
 
 function goHome() {
   router.push('/')
 }
+
+onMounted(() => {
+  fetchEmotions()
+})
 </script>
 
 <style scoped>
 .confess-container {
   width: 100%;
-  max-width: 600px;
+  max-width: 650px;
 }
 
 .confess-card {
@@ -227,6 +336,161 @@ function goHome() {
   color: #999;
 }
 
+.section-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 16px;
+  font-weight: 500;
+  color: #333;
+  margin-bottom: 15px;
+}
+
+.label-icon {
+  font-size: 18px;
+}
+
+.intensity-value {
+  color: #667eea;
+  font-weight: 600;
+}
+
+.emotion-section {
+  background: #fafbfc;
+  padding: 20px;
+  border-radius: 15px;
+}
+
+.emotion-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+  gap: 12px;
+}
+
+.emotion-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 14px 10px;
+  background: white;
+  border: 2px solid transparent;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  font-family: inherit;
+}
+
+.emotion-btn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  background: #f8f9ff;
+}
+
+.emotion-btn.active {
+  background: var(--emotion-color);
+  border-width: 2px;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.emotion-btn.active .emotion-name,
+.emotion-btn.active .emotion-emoji {
+  color: white;
+}
+
+.emotion-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.emotion-emoji {
+  font-size: 28px;
+  transition: transform 0.3s ease;
+}
+
+.emotion-btn.active .emotion-emoji {
+  transform: scale(1.1);
+}
+
+.emotion-name {
+  font-size: 13px;
+  font-weight: 500;
+  color: #555;
+}
+
+.intensity-section {
+  background: linear-gradient(135deg, #fef9e7 0%, #fdf2e9 100%);
+  padding: 20px;
+  border-radius: 15px;
+  animation: fadeIn 0.4s ease;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.intensity-slider-container {
+  margin-top: 10px;
+}
+
+.intensity-levels {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  padding: 0 10px;
+}
+
+.intensity-point {
+  flex: 1;
+  height: 56px;
+  border-radius: 12px;
+  background: #e5e7eb;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  opacity: 0.4;
+}
+
+.intensity-point.active {
+  opacity: 1;
+  transform: scale(1.02);
+}
+
+.intensity-point:hover {
+  transform: scale(1.08);
+  opacity: 1;
+}
+
+.intensity-num {
+  font-size: 18px;
+  font-weight: 700;
+  color: white;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+.intensity-labels-row {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 10px;
+  padding: 0 10px;
+}
+
+.intensity-label-text {
+  font-size: 13px;
+  color: #888;
+}
+
 .error-message {
   background: #fef2f2;
   color: #dc2626;
@@ -284,11 +548,6 @@ function goHome() {
 
 .complete-card {
   animation: fadeIn 0.5s ease;
-}
-
-@keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
 }
 
 .complete-content {

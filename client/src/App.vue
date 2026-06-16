@@ -9,6 +9,9 @@
         <router-link to="/confess" class="nav-link" :class="{ active: $route.path === '/confess' }">
           倾诉秘密
         </router-link>
+        <router-link to="/emotions" class="nav-link" :class="{ active: $route.path.startsWith('/emotions') }">
+          情绪地图
+        </router-link>
       </nav>
     </header>
     <main class="main">
@@ -42,6 +45,8 @@
   justify-content: space-between;
   align-items: center;
   border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+  flex-wrap: wrap;
+  gap: 15px;
 }
 
 .logo {
@@ -52,7 +57,8 @@
 
 .nav {
   display: flex;
-  gap: 30px;
+  gap: 20px;
+  flex-wrap: wrap;
 }
 
 .nav-link {
